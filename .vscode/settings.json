@@ -1,0 +1,20 @@
+{
+    "files.associations": {
+        "atomic": "c",
+        "cstring": "c",
+        "system_error": "c",
+        "xlocale": "c",
+        "xlocbuf": "c",
+        "xlocinfo": "c",
+        "xlocmon": "c",
+        "xstring": "c",
+        "xutility": "c",
+        "*.ipp": "c"
+    },
+    "idf.adapterTargetName": "esp32",
+    "idf.portWin": "COM7",
+    "idf.openOcdConfigs": [
+        "interface/ftdi/esp32_devkitj_v1.cfg",
+        "target/esp32.cfg"
+    ]
+}

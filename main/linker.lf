@@ -17,6 +17,7 @@ entries:
     nsi (noflash)
     parallel (noflash)
     pcfx_spi (noflash)
+    vampire4sa (noflash)
     ps_spi (noflash)
     real_spi (noflash)
     sega_io (noflash)

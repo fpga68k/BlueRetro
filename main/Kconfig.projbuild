@@ -95,6 +95,11 @@ menu "BlueRetro"
             help
                 Select this to support only PC-FX.
 
+        config BLUERETRO_SYSTEM_VAMPIRE4SA
+            bool "VAMPIRE4SA"
+            help
+                Select this to support only VAMPIRE4SA.
+        
         config BLUERETRO_SYSTEM_JVS
             bool "JVS"
             help

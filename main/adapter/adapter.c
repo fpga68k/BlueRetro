@@ -22,6 +22,7 @@
 #include "real.h"
 #include "jag.h"
 #include "pcfx.h"
+#include "vampire4sa.h"
 #include "ps.h"
 #include "saturn.h"
 #include "jvs.h"
@@ -104,6 +105,7 @@ static from_generic_t from_generic_func[WIRED_MAX] = {
     gc_from_generic, /* GC */
     NULL, /* WII_EXT */
     NULL, /* EXP_BOARD */
+    vampire4sa_from_generic, /* Vampire V4SA P21 expansion */
 };
 
 static fb_to_generic_t fb_to_generic_func[WIRED_MAX] = {
@@ -128,6 +130,7 @@ static fb_to_generic_t fb_to_generic_func[WIRED_MAX] = {
     gc_fb_to_generic, /* GC */
     NULL, /* WII_EXT */
     NULL, /* EXP_BOARD */
+    NULL, /* Vampire V4SA P21 expansion */
 };
 
 static meta_init_t meta_init_func[WIRED_MAX] = {
@@ -152,6 +155,7 @@ static meta_init_t meta_init_func[WIRED_MAX] = {
     gc_meta_init, /* GC */
     NULL, /* WII_EXT */
     NULL, /* EXP_BOARD */
+    vampire4sa_meta_init, /* Vampire V4SA P21 expansion */
 };
 
 static DRAM_ATTR buffer_init_t buffer_init_func[WIRED_MAX] = {
@@ -176,6 +180,7 @@ static DRAM_ATTR buffer_init_t buffer_init_func[WIRED_MAX] = {
     gc_init_buffer, /* GC */
     NULL, /* WII_EXT */
     NULL, /* EXP_BOARD */
+    vampire4sa_init_buffer, /* Vampire V4SA P21 expansion */
 };
 
 struct generic_ctrl ctrl_input;

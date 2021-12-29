@@ -62,6 +62,7 @@ enum {
     GC,
     WII_EXT,
     EXP_BOARD,
+    VAMPIRE4SA,
     WIRED_MAX,
 };
 

@@ -25,6 +25,7 @@
 #include "wired/jvs_uart.h"
 #include "wired/parallel.h"
 #include "wired/pcfx_spi.h"
+#include "wired/vampire4sa.h"
 #include "wired/ps_spi.h"
 #include "wired/real_spi.h"
 #include "wired/jag_io.h"
@@ -86,6 +87,10 @@
 #else
 #ifdef CONFIG_BLUERETRO_SYSTEM_EXP_BOARD
 #define HARDCODED_SYS EXP_BOARD
+#else
+#ifdef CONFIG_BLUERETRO_SYSTEM_VAMPIRE4SA
+#define HARDCODED_SYS VAMPIRE4SA
+#endif
 #endif
 #endif
 #endif
@@ -130,6 +135,7 @@ static const char *sys_name[WIRED_MAX] = {
     "GC",
     "Wii-EXT",
     "Exp Board",
+    "VAMPIRE4SA"
 };
 
 static const wired_init_t wired_init[WIRED_MAX] = {
@@ -154,6 +160,7 @@ static const wired_init_t wired_init[WIRED_MAX] = {
     nsi_init, /* GC */
     NULL, /* WII_EXT */
     NULL, /* EXP_BOARD */
+    vampire4sa_init, /* VAMPIRE4SA */
 };
 
 static void wired_init_task(void) {
