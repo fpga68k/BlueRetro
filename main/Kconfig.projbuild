@@ -140,6 +140,11 @@ menu "BlueRetro"
             help
                 Select this to support only SEA Board.
 
+        config BLUERETRO_SYSTEM_VAMPIRE4SA
+            bool "VAMPIRE4SA"
+            help
+                Select this to support only VAMPIRE4SA.
+
     endchoice
 
     menu "Debug"
