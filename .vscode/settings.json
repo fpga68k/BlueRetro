@@ -9,7 +9,11 @@
         "xlocmon": "c",
         "xstring": "c",
         "xutility": "c",
-        "*.ipp": "c"
+        "*.ipp": "c",
+        "util.h": "c",
+        "config.h": "c",
+        "adapter.h": "c",
+        "atomic.h": "c"
     },
     "idf.adapterTargetName": "esp32",
     "idf.portWin": "COM7",
