@@ -13,7 +13,13 @@
         "util.h": "c",
         "config.h": "c",
         "adapter.h": "c",
-        "atomic.h": "c"
+        "atomic.h": "c",
+        "brownout.h": "c",
+        "usb_console.h": "c",
+        "spiram.h": "c",
+        "nvs_flash.h": "c",
+        "nvs.h": "c",
+        "stdint.h": "c"
     },
     "idf.adapterTargetName": "esp32",
     "idf.portWin": "COM7",

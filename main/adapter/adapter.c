@@ -15,29 +15,8 @@
 #include "tools/util.h"
 #include "config.h"
 #include "adapter.h"
-#include "npiso.h"
-#include "cdi.h"
-#include "genesis.h"
-#include "pce.h"
-#include "real.h"
-#include "jag.h"
-#include "pcfx.h"
-#include "vampire4sa.h"
-#include "ps.h"
-#include "saturn.h"
-#include "jvs.h"
-#include "n64.h"
-#include "dc.h"
-#include "gc.h"
-#include "hid_generic.h"
-#include "ps3.h"
-#include "wii.h"
-#include "ps4_ps5.h"
-#include "xb1.h"
-#include "sw.h"
-#include "parallel_1p.h"
-#include "parallel_2p.h"
-#include "parallel_auto.h"
+#include "wired/wired.h"
+#include "wireless/wireless.h"
 
 const uint32_t hat_to_ld_btns[16] = {
     BIT(PAD_LD_UP), BIT(PAD_LD_UP) | BIT(PAD_LD_RIGHT), BIT(PAD_LD_RIGHT), BIT(PAD_LD_DOWN) | BIT(PAD_LD_RIGHT),
@@ -53,134 +32,6 @@ const uint32_t generic_btns_mask[32] = {
     BIT(PAD_MM), BIT(PAD_MS), BIT(PAD_MT), BIT(PAD_MQ),
     BIT(PAD_LM), BIT(PAD_LS), BIT(PAD_LT), BIT(PAD_LJ),
     BIT(PAD_RM), BIT(PAD_RS), BIT(PAD_RT), BIT(PAD_RJ),
-};
-
-static to_generic_t to_generic_func[BT_MAX] = {
-    hid_to_generic, /* HID_GENERIC */
-    ps3_to_generic, /* PS3_DS3 */
-    wii_to_generic, /* WII_CORE */
-    wiin_to_generic, /* WII_NUNCHUCK */
-    wiic_to_generic, /* WII_CLASSIC */
-    wiiu_to_generic, /* WIIU_PRO */
-    ps4_ps5_to_generic, /* PS4_DS4 */
-    xb1_to_generic, /* XB1_S */
-    xb1_to_generic, /* XB1_ADAPTIVE */
-    sw_to_generic, /* SW */
-    ps4_ps5_to_generic, /* PS5_DS */
-};
-
-static fb_from_generic_t fb_from_generic_func[BT_MAX] = {
-    NULL, /* HID_GENERIC */
-    ps3_fb_from_generic, /* PS3_DS3 */
-    wii_fb_from_generic, /* WII_CORE */
-    wii_fb_from_generic, /* WII_NUNCHUCK */
-    wii_fb_from_generic, /* WII_CLASSIC */
-    wii_fb_from_generic, /* WIIU_PRO */
-    ps4_fb_from_generic, /* PS4_DS4 */
-    xb1_fb_from_generic, /* XB1_S */
-    xb1_fb_from_generic, /* XB1_ADAPTIVE */
-    sw_fb_from_generic, /* SW */
-    ps5_fb_from_generic, /* PS5_DS4 */
-};
-
-static from_generic_t from_generic_func[WIRED_MAX] = {
-    NULL, //para_auto_from_generic, /* WIRED_AUTO */
-    para_1p_from_generic, /* PARALLEL_1P */
-    para_2p_from_generic, /* PARALLEL_2P */
-    npiso_from_generic, /* NES */
-    pce_from_generic, /* PCE */
-    genesis_from_generic, /* GENESIS */
-    npiso_from_generic, /* SNES */
-    cdi_from_generic, /* CDI */
-    NULL, /* CD32 */
-    real_from_generic, /* REAL_3DO */
-    jag_from_generic, /* JAGUAR */
-    ps_from_generic, /* PSX */
-    saturn_from_generic, /* SATURN */
-    pcfx_from_generic, /* PCFX */
-    jvs_from_generic, /* JVS */
-    n64_from_generic, /* N64 */
-    dc_from_generic, /* DC */
-    ps_from_generic, /* PS2 */
-    gc_from_generic, /* GC */
-    NULL, /* WII_EXT */
-    NULL, /* EXP_BOARD */
-    vampire4sa_from_generic, /* Vampire V4SA P21 expansion */
-};
-
-static fb_to_generic_t fb_to_generic_func[WIRED_MAX] = {
-    NULL, /* WIRED_AUTO */
-    NULL, /* PARALLEL_1P */
-    NULL, /* PARALLEL_2P */
-    NULL, /* NES */
-    NULL, /* PCE */
-    NULL, /* GENESIS */
-    NULL, /* SNES */
-    NULL, /* CDI */
-    NULL, /* CD32 */
-    NULL, /* REAL_3DO */
-    NULL, /* JAGUAR */
-    ps_fb_to_generic, /* PSX */
-    NULL, /* SATURN */
-    NULL, /* PCFX */
-    NULL, /* JVS */
-    n64_fb_to_generic, /* N64 */
-    dc_fb_to_generic, /* DC */
-    ps_fb_to_generic, /* PS2 */
-    gc_fb_to_generic, /* GC */
-    NULL, /* WII_EXT */
-    NULL, /* EXP_BOARD */
-    NULL, /* Vampire V4SA P21 expansion */
-};
-
-static meta_init_t meta_init_func[WIRED_MAX] = {
-    NULL, //para_auto_meta_init, /* WIRED_AUTO */
-    para_1p_meta_init, /* PARALLEL_1P */
-    para_2p_meta_init, /* PARALLEL_2P */
-    npiso_meta_init, /* NES */
-    pce_meta_init, /* PCE */
-    genesis_meta_init, /* GENESIS */
-    npiso_meta_init, /* SNES */
-    cdi_meta_init, /* CDI */
-    NULL, /* CD32 */
-    real_meta_init, /* REAL_3DO */
-    jag_meta_init, /* JAGUAR */
-    ps_meta_init, /* PSX */
-    saturn_meta_init, /* SATURN */
-    pcfx_meta_init, /* PCFX */
-    jvs_meta_init, /* JVS */
-    n64_meta_init, /* N64 */
-    dc_meta_init, /* DC */
-    ps_meta_init, /* PS2 */
-    gc_meta_init, /* GC */
-    NULL, /* WII_EXT */
-    NULL, /* EXP_BOARD */
-    vampire4sa_meta_init, /* Vampire V4SA P21 expansion */
-};
-
-static DRAM_ATTR buffer_init_t buffer_init_func[WIRED_MAX] = {
-    NULL, //para_auto_init_buffer, /* WIRED_AUTO */
-    para_1p_init_buffer, /* PARALLEL_1P */
-    para_2p_init_buffer, /* PARALLEL_2P */
-    npiso_init_buffer, /* NES */
-    pce_init_buffer, /* PCE */
-    genesis_init_buffer, /* GENESIS */
-    npiso_init_buffer, /* SNES */
-    cdi_init_buffer, /* CDI */
-    NULL, /* CD32 */
-    real_init_buffer, /* REAL_3DO */
-    jag_init_buffer, /* JAGUAR */
-    ps_init_buffer, /* PSX */
-    saturn_init_buffer, /* SATURN */
-    pcfx_init_buffer, /* PCFX */
-    jvs_init_buffer, /* JVS */
-    n64_init_buffer, /* N64 */
-    dc_init_buffer, /* DC */
-    ps_init_buffer, /* PS2 */
-    gc_init_buffer, /* GC */
-    NULL, /* WII_EXT */
-    NULL, /* EXP_BOARD */
-    vampire4sa_init_buffer, /* Vampire V4SA P21 expansion */
 };
 
 struct generic_ctrl ctrl_input;
@@ -214,7 +65,7 @@ static uint32_t adapter_map_from_axis(struct map_cfg * map_cfg) {
     uint32_t src_axis_idx = btn_id_to_axis(src);
     uint32_t dst_axis_idx = btn_id_to_axis(dst);
 
-    if (src_axis_idx == AXIS_NONE || dst_axis_idx == AXIS_NONE) {
+    if (src_axis_idx == AXIS_NONE) {
         return 0;
     }
 
@@ -337,10 +188,14 @@ static uint32_t adapter_mapping(struct in_cfg * in_cfg) {
 }
 
 static void adapter_fb_stop_cb(void* arg) {
-    uint8_t dev_id = (uint8_t)(uintptr_t)arg;
+    struct raw_fb fb_data = {0};
 
-    /* Send 1 byte, system that require callback stop shall look for that */
-    queue_bss_enqueue(wired_adapter.input_q_hdl, &dev_id, 1);
+    fb_data.header.wired_id = (uint8_t)(uintptr_t)arg;
+    fb_data.header.type = FB_TYPE_RUMBLE;
+    fb_data.header.data_len = 0;
+
+    /* Send 0 byte data, system that require callback stop shall look for that */
+    adapter_q_fb(&fb_data);
 }
 
 int32_t btn_id_to_axis(uint8_t btn_id) {
@@ -418,42 +273,98 @@ int8_t btn_sign(uint32_t polarity, uint8_t btn_id) {
 }
 
 void IRAM_ATTR adapter_init_buffer(uint8_t wired_id) {
-    if (wired_adapter.system_id != WIRED_NONE && buffer_init_func[wired_adapter.system_id]) {
+    if (wired_adapter.system_id != WIRED_AUTO) {
         wired_adapter.data[wired_id].index = wired_id;
-        buffer_init_func[wired_adapter.system_id](config.out_cfg[wired_id].dev_mode, &wired_adapter.data[wired_id]);
+        wired_init_buffer(config.out_cfg[wired_id].dev_mode, &wired_adapter.data[wired_id]);
     }
 }
 
 void adapter_bridge(struct bt_data *bt_data) {
     uint32_t out_mask = 0;
 
-    if (bt_data->dev_id != BT_NONE && to_generic_func[bt_data->dev_type]) {
-        if (to_generic_func[bt_data->dev_type](bt_data, &ctrl_input)) {
+    if (bt_data->dev_id != BT_NONE) {
+        if (wireless_to_generic(bt_data, &ctrl_input)) {
             /* Unsupported report */
             return;
         }
 
 #ifdef CONFIG_BLUERETRO_ADAPTER_INPUT_DBG
-        printf("LX: %s%08X%s, LY: %s%08X%s, RX: %s%08X%s, RY: %s%08X%s, LT: %s%08X%s, RT: %s%08X%s, BTNS: %s%08X%s, BTNS: %s%08X%s, BTNS: %s%08X%s, BTNS: %s%08X%s\n",
+        printf("LX: %s%08X%s, LY: %s%08X%s, RX: %s%08X%s, RY: %s%08X%s, LT: %s%08X%s, RT: %s%08X%s, BTNS: %s%08X%s, BTNS: %s%08X%s, BTNS: %s%08X%s, BTNS: %s%08X%s",
             BOLD, ctrl_input.axes[0].value, RESET, BOLD, ctrl_input.axes[1].value, RESET, BOLD, ctrl_input.axes[2].value, RESET, BOLD, ctrl_input.axes[3].value, RESET,
             BOLD, ctrl_input.axes[4].value, RESET, BOLD, ctrl_input.axes[5].value, RESET, BOLD, ctrl_input.btns[0].value, RESET, BOLD, ctrl_input.btns[1].value, RESET,
             BOLD, ctrl_input.btns[2].value, RESET, BOLD, ctrl_input.btns[3].value, RESET);
+#ifdef CONFIG_BLUERETRO_ADAPTER_BTNS_DBG
+        uint32_t b = ctrl_input.btns[0].value;
+        printf(" %sDL%s %sDR%s %sDD%s %sDU%s %sBL%s %sBR%s %sBD%s %sBU%s %sMM%s %sMS%s %sMT%s %sMQ%s %sLM%s %sLS%s %sLT%s %sLJ%s %sRM%s %sRS%s %sRT%s %sRJ%s",
+            (b & BIT(PAD_LD_LEFT)) ? GREEN : RESET, RESET,
+            (b & BIT(PAD_LD_RIGHT)) ? GREEN : RESET, RESET,
+            (b & BIT(PAD_LD_DOWN)) ? GREEN : RESET, RESET,
+            (b & BIT(PAD_LD_UP)) ? GREEN : RESET, RESET,
+            (b & BIT(PAD_RB_LEFT)) ? GREEN : RESET, RESET,
+            (b & BIT(PAD_RB_RIGHT)) ? GREEN : RESET, RESET,
+            (b & BIT(PAD_RB_DOWN)) ? GREEN : RESET, RESET,
+            (b & BIT(PAD_RB_UP)) ? GREEN : RESET, RESET,
+            (b & BIT(PAD_MM)) ? GREEN : RESET, RESET,
+            (b & BIT(PAD_MS)) ? GREEN : RESET, RESET,
+            (b & BIT(PAD_MT)) ? GREEN : RESET, RESET,
+            (b & BIT(PAD_MQ)) ? GREEN : RESET, RESET,
+            (b & BIT(PAD_LM)) ? GREEN : RESET, RESET,
+            (b & BIT(PAD_LS)) ? GREEN : RESET, RESET,
+            (b & BIT(PAD_LT)) ? GREEN : RESET, RESET,
+            (b & BIT(PAD_LJ)) ? GREEN : RESET, RESET,
+            (b & BIT(PAD_RM)) ? GREEN : RESET, RESET,
+            (b & BIT(PAD_RS)) ? GREEN : RESET, RESET,
+            (b & BIT(PAD_RT)) ? GREEN : RESET, RESET,
+            (b & BIT(PAD_RJ)) ? GREEN : RESET, RESET);
+#endif
+        printf("\n");
+#ifdef CONFIG_BLUERETRO_ADAPTER_RUMBLE_DBG
+        if (ctrl_input.btns[0].value & BIT(PAD_RB_DOWN)) {
+            uint8_t tmp = 0;
+            adapter_q_fb(&tmp, 1);
+        }
+#endif
 #else
-        if (wired_adapter.system_id != WIRED_NONE && from_generic_func[wired_adapter.system_id]) {
-            meta_init_func[wired_adapter.system_id](ctrl_output);
+        if (wired_adapter.system_id != WIRED_AUTO) {
+            wired_meta_init(ctrl_output);
 
             out_mask = adapter_mapping(&config.in_cfg[bt_data->dev_id]);
 
 #ifdef CONFIG_BLUERETRO_ADAPTER_INPUT_MAP_DBG
-            printf("LX: %s%08X%s, LY: %s%08X%s, RX: %s%08X%s, RY: %s%08X%s, LT: %s%08X%s, RT: %s%08X%s, BTNS: %s%08X%s, BTNS: %s%08X%s, BTNS: %s%08X%s, BTNS: %s%08X%s\n",
+            printf("LX: %s%08X%s, LY: %s%08X%s, RX: %s%08X%s, RY: %s%08X%s, LT: %s%08X%s, RT: %s%08X%s, BTNS: %s%08X%s, BTNS: %s%08X%s, BTNS: %s%08X%s, BTNS: %s%08X%s",
                 BOLD, ctrl_output[0].axes[0].value, RESET, BOLD, ctrl_output[0].axes[1].value, RESET, BOLD, ctrl_output[0].axes[2].value, RESET, BOLD, ctrl_output[0].axes[3].value, RESET,
                 BOLD, ctrl_output[0].axes[4].value, RESET, BOLD, ctrl_output[0].axes[5].value, RESET, BOLD, ctrl_output[0].btns[0].value, RESET, BOLD, ctrl_output[0].btns[1].value, RESET,
                 BOLD, ctrl_output[0].btns[2].value, RESET, BOLD, ctrl_output[0].btns[3].value, RESET);
+#ifdef CONFIG_BLUERETRO_ADAPTER_BTNS_DBG
+            uint32_t b = ctrl_output[0].btns[0].value;
+            printf(" %sDL%s %sDR%s %sDD%s %sDU%s %sBL%s %sBR%s %sBD%s %sBU%s %sMM%s %sMS%s %sMT%s %sMQ%s %sLM%s %sLS%s %sLT%s %sLJ%s %sRM%s %sRS%s %sRT%s %sRJ%s",
+                (b & BIT(PAD_LD_LEFT)) ? GREEN : RESET, RESET,
+                (b & BIT(PAD_LD_RIGHT)) ? GREEN : RESET, RESET,
+                (b & BIT(PAD_LD_DOWN)) ? GREEN : RESET, RESET,
+                (b & BIT(PAD_LD_UP)) ? GREEN : RESET, RESET,
+                (b & BIT(PAD_RB_LEFT)) ? GREEN : RESET, RESET,
+                (b & BIT(PAD_RB_RIGHT)) ? GREEN : RESET, RESET,
+                (b & BIT(PAD_RB_DOWN)) ? GREEN : RESET, RESET,
+                (b & BIT(PAD_RB_UP)) ? GREEN : RESET, RESET,
+                (b & BIT(PAD_MM)) ? GREEN : RESET, RESET,
+                (b & BIT(PAD_MS)) ? GREEN : RESET, RESET,
+                (b & BIT(PAD_MT)) ? GREEN : RESET, RESET,
+                (b & BIT(PAD_MQ)) ? GREEN : RESET, RESET,
+                (b & BIT(PAD_LM)) ? GREEN : RESET, RESET,
+                (b & BIT(PAD_LS)) ? GREEN : RESET, RESET,
+                (b & BIT(PAD_LT)) ? GREEN : RESET, RESET,
+                (b & BIT(PAD_LJ)) ? GREEN : RESET, RESET,
+                (b & BIT(PAD_RM)) ? GREEN : RESET, RESET,
+                (b & BIT(PAD_RS)) ? GREEN : RESET, RESET,
+                (b & BIT(PAD_RT)) ? GREEN : RESET, RESET,
+                (b & BIT(PAD_RJ)) ? GREEN : RESET, RESET);
+#endif
+            printf("\n");
 #else
             for (uint32_t i = 0; out_mask; i++, out_mask >>= 1) {
                 if (out_mask & 0x1) {
                     ctrl_output[i].index = i;
-                    from_generic_func[wired_adapter.system_id](config.out_cfg[i].dev_mode, &ctrl_output[i], &wired_adapter.data[i]);
+                    wired_from_generic(config.out_cfg[i].dev_mode, &ctrl_output[i], &wired_adapter.data[i]);
                 }
             }
 #endif
@@ -479,28 +390,33 @@ void adapter_fb_stop_timer_stop(uint8_t dev_id) {
     wired_adapter.data[dev_id].fb_timer_hdl = NULL;
 }
 
-uint32_t adapter_bridge_fb(uint8_t *fb_data, uint32_t fb_len, struct bt_data *bt_data) {
+uint32_t adapter_bridge_fb(struct raw_fb *fb_data, struct bt_data *bt_data) {
     uint32_t ret = 0;
-    if (wired_adapter.system_id != WIRED_NONE && fb_to_generic_func[wired_adapter.system_id]) {
-        fb_to_generic_func[wired_adapter.system_id](config.out_cfg[bt_data->dev_id].dev_mode, fb_data, fb_len, &fb_input);
-
-        if (bt_data->dev_type != BT_NONE && fb_from_generic_func[bt_data->dev_type]) {
-            fb_from_generic_func[bt_data->dev_type](&fb_input, bt_data);
+#ifndef CONFIG_BLUERETRO_ADAPTER_RUMBLE_DBG
+    if (wired_adapter.system_id != WIRED_AUTO) {
+        wired_fb_to_generic(config.out_cfg[bt_data->dev_id].dev_mode, fb_data, &fb_input);
+#else
+        fb_input.state ^= 0x01;
+#endif
+        if (bt_data->dev_type != BT_NONE) {
+            wireless_fb_from_generic(&fb_input, bt_data);
             ret = 1;
         }
+#ifndef CONFIG_BLUERETRO_ADAPTER_RUMBLE_DBG
     }
+#endif
     return ret;
 }
 
-void IRAM_ATTR adapter_q_fb(uint8_t *data, uint32_t len) {
+void IRAM_ATTR adapter_q_fb(struct raw_fb *fb_data) {
     /* Best efford only on fb */
-    queue_bss_enqueue(wired_adapter.input_q_hdl, data, len);
+    queue_bss_enqueue(wired_adapter.input_q_hdl, (uint8_t *)fb_data, sizeof(*fb_data));
 }
 
 void adapter_init(void) {
-    wired_adapter.system_id = WIRED_NONE;
+    wired_adapter.system_id = WIRED_AUTO;
 
-    wired_adapter.input_q_hdl = queue_bss_init(16, 16);
+    wired_adapter.input_q_hdl = queue_bss_init(16, sizeof(struct raw_fb));
     if (wired_adapter.input_q_hdl == NULL) {
         ets_printf("# %s: Failed to create fb queue\n", __FUNCTION__);
     }

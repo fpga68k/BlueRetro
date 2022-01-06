@@ -10,11 +10,13 @@
 #include "zephyr/hci.h"
 #include "zephyr/l2cap_internal.h"
 #include "zephyr/sdp_internal.h"
+#include "zephyr/smp.h"
 #include "zephyr/att_internal.h"
 #include "adapter/adapter.h"
-#include "hidp.h"
+#include "hidp/hidp.h"
 
 #define BT_MAX_RETRY 3
+#define BT_SDP_DATA_SIZE 2048
 
 enum {
     /* BT device connection flags */
@@ -27,6 +29,8 @@ enum {
     BT_DEV_HID_INTR_READY,
     BT_DEV_SDP_DATA,
     BT_DEV_ROLE_SW_FAIL,
+    BT_DEV_IS_BLE,
+    BT_DEV_FB_DELAY,
 };
 
 struct l2cap_chan {
@@ -39,15 +43,38 @@ struct bt_dev {
     int32_t id;
     int32_t flags;
     uint32_t pkt_retry;
-    uint8_t remote_bdaddr[6];
+    union {
+        struct {
+            uint8_t reserve;
+            uint8_t remote_bdaddr[6];
+        };
+        bt_addr_le_t le_remote_bdaddr;
+    };
     int32_t type;
+    uint32_t subtype;
     uint16_t acl_handle;
-    uint32_t sdp_state;
     uint32_t hid_state;
-    struct l2cap_chan sdp_rx_chan;
-    struct l2cap_chan sdp_tx_chan;
-    struct l2cap_chan ctrl_chan;
-    struct l2cap_chan intr_chan;
+    void *timer_hdl;
+    uint8_t tid;
+    union {
+        struct {
+            uint32_t sdp_state;
+            struct l2cap_chan sdp_rx_chan;
+            struct l2cap_chan sdp_tx_chan;
+            struct l2cap_chan ctrl_chan;
+            struct l2cap_chan intr_chan;
+        };
+        struct {
+            uint8_t rand[BT_SMP_MAX_ENC_KEY_SIZE];
+            uint8_t rrand[BT_SMP_MAX_ENC_KEY_SIZE];
+            uint8_t ltk[BT_SMP_MAX_ENC_KEY_SIZE];
+            uint8_t preq[7];
+            uint8_t pres[7];
+            uint8_t rdist;
+            uint8_t ldist;
+            uint16_t mtu;
+        };
+    };
 };
 
 struct bt_hci_pkt {
@@ -64,6 +91,10 @@ struct bt_hci_pkt {
                 struct {
                     struct bt_l2cap_sig_hdr sig_hdr;
                     uint8_t sig_data[1011];
+                };
+                struct {
+                    struct bt_smp_hdr smp_hdr;
+                    uint8_t smp_data[1014];
                 };
                 struct {
                     struct bt_att_hdr att_hdr;
@@ -99,6 +130,10 @@ int32_t bt_host_init(void);
 int32_t bt_host_txq_add(uint8_t *packet, uint32_t packet_len);
 int32_t bt_host_load_link_key(struct bt_hci_cp_link_key_reply *link_key_reply);
 int32_t bt_host_store_link_key(struct bt_hci_evt_link_key_notify *link_key_notify);
+int32_t bt_host_load_le_ltk(bt_addr_le_t *le_bdaddr, struct bt_smp_encrypt_info *encrypt_info, struct bt_smp_master_ident *master_ident);
+int32_t bt_host_store_le_ltk(bt_addr_le_t *le_bdaddr, struct bt_smp_encrypt_info *encrypt_info);
+int32_t bt_host_store_le_ident(bt_addr_le_t *le_bdaddr, struct bt_smp_master_ident *master_ident);
+int32_t bt_host_get_next_accept_le_bdaddr(bt_addr_le_t *le_bdaddr);
 void bt_host_bridge(struct bt_dev *device, uint8_t report_id, uint8_t *data, uint32_t len);
 
 #endif /* _BT_HOST_H_ */

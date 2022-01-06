@@ -18,10 +18,12 @@
 #include "l2cap.h"
 #include "sdp.h"
 #include "att.h"
+#include "smp.h"
 #include "tools/util.h"
 #include "debug.h"
 #include "system/btn.h"
 #include "system/fs.h"
+#include "adapter/memory_card.h"
 
 #define BT_TX 0
 #define BT_RX 1
@@ -38,9 +40,19 @@ struct bt_host_link_keys {
     struct bt_hci_evt_link_key_notify link_keys[16];
 } __packed;
 
+struct bt_host_le_link_keys {
+    uint32_t index;
+    struct {
+        bt_addr_le_t le_bdaddr;
+        struct bt_smp_encrypt_info ltk;
+        struct bt_smp_master_ident ident;
+    } keys[16];
+} __packed;
+
 struct bt_hci_pkt bt_hci_pkt_tmp;
 
 static struct bt_host_link_keys bt_host_link_keys = {0};
+static struct bt_host_le_link_keys bt_host_le_link_keys = {0};
 static RingbufHandle_t txq_hdl;
 static struct bt_dev bt_dev_conf = {0};
 static struct bt_dev bt_dev[BT_DEV_MAX] = {0};
@@ -55,6 +67,8 @@ static void bt_h4_trace(uint8_t *data, uint16_t len, uint8_t dir);
 static int32_t bt_host_load_bdaddr_from_file(void);
 static int32_t bt_host_load_keys_from_file(struct bt_host_link_keys *data);
 static int32_t bt_host_store_keys_on_file(struct bt_host_link_keys *data);
+static int32_t bt_host_load_le_keys_from_file(struct bt_host_le_link_keys *data);
+static int32_t bt_host_store_le_keys_on_file(struct bt_host_le_link_keys *data);
 static void bt_host_acl_hdlr(struct bt_hci_pkt *bt_hci_acl_pkt, uint32_t len);
 static void bt_host_tx_pkt_ready(void);
 static int bt_host_rx_pkt(uint8_t *data, uint16_t len);
@@ -166,6 +180,45 @@ static int32_t bt_host_store_keys_on_file(struct bt_host_link_keys *data) {
     return ret;
 }
 
+static int32_t bt_host_load_le_keys_from_file(struct bt_host_le_link_keys *data) {
+    struct stat st;
+    int32_t ret = -1;
+
+    if (stat(LE_LINK_KEYS_FILE, &st) != 0) {
+        printf("# %s: No link keys on SD. Creating...\n", __FUNCTION__);
+        ret = bt_host_store_le_keys_on_file(data);
+    }
+    else {
+        FILE *file = fopen(LE_LINK_KEYS_FILE, "rb");
+        if (file == NULL) {
+            printf("# %s: failed to open file for reading\n", __FUNCTION__);
+        }
+        else {
+            uint32_t count = fread((void *)data, sizeof(*data), 1, file);
+            fclose(file);
+            if (count == 1) {
+                ret = 0;
+            }
+        }
+    }
+    return ret;
+}
+
+static int32_t bt_host_store_le_keys_on_file(struct bt_host_le_link_keys *data) {
+    int32_t ret = -1;
+
+    FILE *file = fopen(LE_LINK_KEYS_FILE, "wb");
+    if (file == NULL) {
+        printf("# %s: failed to open file for writing\n", __FUNCTION__);
+    }
+    else {
+        fwrite((void *)data, sizeof(*data), 1, file);
+        fclose(file);
+        ret = 0;
+    }
+    return ret;
+}
+
 static void bt_tx_task(void *param) {
     size_t packet_len;
     uint8_t *packet;
@@ -194,17 +247,26 @@ static void bt_tx_task(void *param) {
 
 static void bt_fb_task(void *param) {
     uint32_t *fb_len;
-    uint8_t *fb_data;
+    struct raw_fb *fb_data = NULL;
 
     while(1) {
         /* Look for rumble/led feedback data */
-        fb_data = (uint8_t *)queue_bss_dequeue(wired_adapter.input_q_hdl, &fb_len);
+        fb_data = (struct raw_fb *)queue_bss_dequeue(wired_adapter.input_q_hdl, &fb_len);
         if (fb_data) {
-            struct bt_dev *device = &bt_dev[fb_data[0]];
-            if (adapter_bridge_fb(fb_data, *fb_len, &bt_adapter.data[device->id])) {
-                bt_hid_feedback(device, bt_adapter.data[device->id].output);
+            switch (fb_data->header.type) {
+                case FB_TYPE_MEM_WRITE:
+                    mc_storage_update();
+                    break;
+                default:
+                {
+                    struct bt_dev *device = &bt_dev[fb_data->header.wired_id];
+                    if (adapter_bridge_fb(fb_data, &bt_adapter.data[device->id])) {
+                        bt_hid_feedback(device, bt_adapter.data[device->id].output);
+                    }
+                    break;
+                }
             }
-            queue_bss_return(wired_adapter.input_q_hdl, fb_data, fb_len);
+            queue_bss_return(wired_adapter.input_q_hdl, (uint8_t *)fb_data, fb_len);
         }
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
@@ -260,7 +322,7 @@ static void bt_host_acl_hdlr(struct bt_hci_pkt *bt_hci_acl_pkt, uint32_t len) {
 
     if (device == NULL) {
         if (pkt->l2cap_hdr.cid == BT_L2CAP_CID_ATT) {
-            bt_att_hdlr(&bt_dev_conf, pkt, pkt_len);
+            bt_att_cfg_hdlr(&bt_dev_conf, pkt, pkt_len);
         }
         else {
             printf("# %s dev NULL!\n", __FUNCTION__);
@@ -270,6 +332,15 @@ static void bt_host_acl_hdlr(struct bt_hci_pkt *bt_hci_acl_pkt, uint32_t len) {
 
     if (pkt->l2cap_hdr.cid == BT_L2CAP_CID_BR_SIG) {
         bt_l2cap_sig_hdlr(device, pkt);
+    }
+    else if (pkt->l2cap_hdr.cid == BT_L2CAP_CID_ATT) {
+        bt_att_hid_hdlr(device, pkt, pkt_len);
+    }
+    else if (pkt->l2cap_hdr.cid == BT_L2CAP_CID_LE_SIG) {
+        bt_l2cap_le_sig_hdlr(device, pkt, pkt_len);
+    }
+    else if (pkt->l2cap_hdr.cid == BT_L2CAP_CID_SMP) {
+        bt_smp_hdlr(device, pkt, pkt_len);
     }
     else if (pkt->l2cap_hdr.cid == device->sdp_tx_chan.scid ||
         pkt->l2cap_hdr.cid == device->sdp_rx_chan.scid) {
@@ -420,17 +491,21 @@ int32_t bt_host_init(void) {
 
     txq_hdl = xRingbufferCreate(256*8, RINGBUF_TYPE_NOSPLIT);
     if (txq_hdl == NULL) {
-        printf("# Failed to create ring buffer\n");
-        return ret;
+        printf("# Failed to create txq ring buffer\n");
+        return -1;
     }
 
     bt_host_load_keys_from_file(&bt_host_link_keys);
+    bt_host_load_le_keys_from_file(&bt_host_le_link_keys);
 
     xTaskCreatePinnedToCore(&bt_host_task, "bt_host_task", 4096, NULL, 5, NULL, 0);
     xTaskCreatePinnedToCore(&bt_fb_task, "bt_fb_task", 2048, NULL, 10, NULL, 0);
     xTaskCreatePinnedToCore(&bt_tx_task, "bt_tx_task", 2048, NULL, 11, NULL, 0);
 
-    bt_hci_init();
+    if (bt_hci_init()) {
+        printf("# HCI init fail.\n");
+        return -1;
+    }
     boot_btn_set_callback(bt_host_disconnect_all, BOOT_BTN_DEFAULT_EVT);
     boot_btn_init();
 
@@ -473,12 +548,73 @@ int32_t bt_host_store_link_key(struct bt_hci_evt_link_key_notify *link_key_notif
     return ret;
 }
 
+int32_t bt_host_load_le_ltk(bt_addr_le_t *le_bdaddr, struct bt_smp_encrypt_info *encrypt_info, struct bt_smp_master_ident *master_ident) {
+    int32_t ret = -1;
+    for (uint32_t i = 0; i < ARRAY_SIZE(bt_host_le_link_keys.keys); i++) {
+        if (memcmp((void *)le_bdaddr, (void *)&bt_host_le_link_keys.keys[i].le_bdaddr, sizeof(*le_bdaddr)) == 0) {
+            memcpy((void *)encrypt_info, &bt_host_le_link_keys.keys[i].ltk, sizeof(*encrypt_info));
+            memcpy((void *)master_ident, &bt_host_le_link_keys.keys[i].ident, sizeof(*master_ident));
+            ret = 0;
+        }
+    }
+    return ret;
+}
+
+int32_t bt_host_store_le_ltk(bt_addr_le_t *le_bdaddr, struct bt_smp_encrypt_info *encrypt_info) {
+    int32_t ret = -1;
+    uint32_t index = bt_host_le_link_keys.index;
+    for (uint32_t i = 0; i < ARRAY_SIZE(bt_host_le_link_keys.keys); i++) {
+        if (memcmp((void *)le_bdaddr, (void *)&bt_host_le_link_keys.keys[i].le_bdaddr, sizeof(*le_bdaddr)) == 0) {
+            index = i;
+        }
+    }
+    memcpy((void *)&bt_host_le_link_keys.keys[index].ltk, (void *)encrypt_info, sizeof(bt_host_le_link_keys.keys[0].ltk));
+    memcpy((void *)&bt_host_le_link_keys.keys[index].le_bdaddr, (void *)le_bdaddr, sizeof(bt_host_le_link_keys.keys[0].le_bdaddr));
+    if (index == bt_host_le_link_keys.index) {
+        bt_host_le_link_keys.index++;
+        bt_host_le_link_keys.index &= 0xF;
+    }
+    ret = bt_host_store_le_keys_on_file(&bt_host_le_link_keys);
+    return ret;
+}
+
+int32_t bt_host_store_le_ident(bt_addr_le_t *le_bdaddr, struct bt_smp_master_ident *master_ident) {
+    int32_t ret = -1;
+    uint32_t index = bt_host_le_link_keys.index;
+    for (uint32_t i = 0; i < ARRAY_SIZE(bt_host_le_link_keys.keys); i++) {
+        if (memcmp((void *)le_bdaddr, (void *)&bt_host_le_link_keys.keys[i].le_bdaddr, sizeof(*le_bdaddr)) == 0) {
+            index = i;
+        }
+    }
+    memcpy((void *)&bt_host_le_link_keys.keys[index].ident, (void *)master_ident, sizeof(bt_host_le_link_keys.keys[0].ident));
+    memcpy((void *)&bt_host_le_link_keys.keys[index].le_bdaddr, (void *)le_bdaddr, sizeof(bt_host_le_link_keys.keys[0].le_bdaddr));
+    if (index == bt_host_le_link_keys.index) {
+        bt_host_le_link_keys.index++;
+        bt_host_le_link_keys.index &= 0xF;
+    }
+    ret = bt_host_store_le_keys_on_file(&bt_host_le_link_keys);
+    return ret;
+}
+
+int32_t bt_host_get_next_accept_le_bdaddr(bt_addr_le_t *le_bdaddr) {
+    static uint32_t index = 0;
+    while (index < ARRAY_SIZE(bt_host_le_link_keys.keys)) {
+        if (bt_addr_le_cmp(&bt_host_le_link_keys.keys[index].le_bdaddr, BT_ADDR_LE_ANY) != 0) {
+            bt_addr_le_copy(le_bdaddr, &bt_host_le_link_keys.keys[index].le_bdaddr);
+            index++;
+            return 0;
+        }
+        index++;
+    }
+    return -1;
+}
+
 void bt_host_bridge(struct bt_dev *device, uint8_t report_id, uint8_t *data, uint32_t len) {
 #ifdef CONFIG_BLUERETRO_BT_TIMING_TESTS
     atomic_set_bit(&bt_flags, BT_HOST_DBG_MODE);
     bt_dbg_init(device->type);
 #else
-    if (device->type == HID_GENERIC) {
+    if (device->type == BT_HID_GENERIC) {
         uint32_t i = 0;
         for (; i < REPORT_MAX; i++) {
             if (bt_adapter.data[device->id].reports[i].id == report_id) {
@@ -495,6 +631,7 @@ void bt_host_bridge(struct bt_dev *device, uint8_t report_id, uint8_t *data, uin
         bt_adapter.data[device->id].report_id = report_id;
         bt_adapter.data[device->id].dev_id = device->id;
         bt_adapter.data[device->id].dev_type = device->type;
+        bt_adapter.data[device->id].dev_subtype = device->subtype;
         memcpy(bt_adapter.data[device->id].input, data, (len > sizeof(bt_adapter.data[0].input)) ? sizeof(bt_adapter.data[0].input) : len);
         adapter_bridge(&bt_adapter.data[device->id]);
     }
